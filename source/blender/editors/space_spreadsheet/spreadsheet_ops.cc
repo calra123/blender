@@ -39,8 +39,10 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "space_spreadsheet.cc"
 #include "spreadsheet_intern.hh"
 #include "spreadsheet_row_filter.hh"
+#include <string>
 
 using namespace blender::ed::spreadsheet;
 
@@ -100,6 +102,62 @@ static void SPREADSHEET_OT_remove_row_filter_rule(wmOperatorType *ot)
   RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "", 0, INT_MAX);
 }
 
+static int export_as_csv_exec(bContext *C, wmOperator *op)
+{
+  std::unique_ptr<DataSource> data_source = get_data_source(C);
+  SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
+  ResourceScope scope;
+  if (!data_source) {
+    data_source = std::make_unique<DataSource>();
+  }
+  int row_size = data_source->tot_rows();
+  std:: cout << "Row size" << std::endl;
+  std::cout << row_size;
+  std::string data_set[row_size];
+
+  LISTBASE_FOREACH (SpreadsheetColumn *, column, &sspreadsheet->columns) {
+    std::unique_ptr<ColumnValues> values_ptr = data_source->get_column_values(*column->id);
+    // BLI_assert(values_ptr);
+    const ColumnValues *values = scope.add(std::move(values_ptr), __func__);
+
+    std::cout << "Col name" << values->name() << std::endl;
+    // std::string = values->name();
+    // int value = values->get_value(0,);
+    CellValue cell_value;
+    int col_size = values->size();
+
+    for (int i = 0; i < col_size; i++) {
+      values->get_value(i, cell_value);
+      if (cell_value.value_float3.has_value()) {
+        const float3 value = *cell_value.value_float3;
+        std::string value_str[3];
+
+        for (int j = 0; j < 3; j++) {
+
+          value_str[j] = std::to_string(value[j]);
+        }
+
+        std::cout << value_str << std::endl;
+      }
+    }
+
+    spreadsheet_column_assign_runtime_data(column, values->type(), values->name());
+  }
+  // std::unique_ptr<ColumnValues> column_values = data_source->get_column_values();
+  std::cout << row_size;
+  return OPERATOR_FINISHED;
+}
+
+static void SPREADSHEET_OT_export_as_csv(wmOperatorType *ot)
+{
+  ot->name = "Export as CSV";
+  ot->description = "Export Spreadsheet data into CSV";
+  ot->idname = "SPREADSHEET_OT_export_as_csv";
+
+  ot->exec = export_as_csv_exec;
+  ot->poll = ED_operator_spreadsheet_active;
+}
+
 static int select_component_domain_invoke(bContext *C,
                                           wmOperator *op,
                                           const wmEvent *UNUSED(event))
@@ -146,4 +204,5 @@ void spreadsheet_operatortypes()
   WM_operatortype_append(SPREADSHEET_OT_add_row_filter_rule);
   WM_operatortype_append(SPREADSHEET_OT_remove_row_filter_rule);
   WM_operatortype_append(SPREADSHEET_OT_change_spreadsheet_data_source);
+  WM_operatortype_append(SPREADSHEET_OT_export_as_csv);
 }

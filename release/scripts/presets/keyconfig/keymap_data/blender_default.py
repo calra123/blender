@@ -3001,6 +3001,7 @@ def km_spreadsheet_generic(_params):
             sidebar_key={"type": 'N', "value": 'PRESS'},
             channels_key={"type": 'T', "value": 'PRESS'},
         ),
+        ("spreadsheet.export_as_csv", {"type": "E", "value": 'PRESS', "ctrl": True}, None),
     ])
 
     return keymap
