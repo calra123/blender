@@ -112,62 +112,58 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
     data_source = std::make_unique<DataSource>();
   }
   const int row_size = data_source->tot_rows();
+  // const int col_size = (sspreadsheet->columns);
   std::cout << "Row size" << std::endl;
   std::cout << row_size;
-  std::vector<std::string> dataset(row_size + 1, "");
+  std::vector<std::vector<std::string>> dataset;
+  int col_iter = 0;
+  Vector<const ColumnValues *> col_values;
 
   LISTBASE_FOREACH (SpreadsheetColumn *, column, &sspreadsheet->columns) {
     std::unique_ptr<ColumnValues> values_ptr = data_source->get_column_values(*column->id);
     // BLI_assert(values_ptr);
     const ColumnValues *values = scope.add(std::move(values_ptr), __func__);
+    col_values.append(values);
+  }
 
-    std::cout << "Col name" << values->name() << std::endl;
-
+  for (int row : IndexRange(row_size)) {
     CellValue cell_value;
-    int tot_values = values->size();
-    std::string col_name = values->name();
-    // TODO: Append extra commas for float3, float2 et al.
-    dataset[0] += (col_name) + ",";
-
-    for (int i = 0; i < row_size; i++) {
-      std::string value_str = "";
-      values->get_value(i, cell_value);
-      if (cell_value.value_float3.has_value()) {
-        const float3 value = *cell_value.value_float3;
-        for (int j = 0; j < 3; j++) {
-          value_str += std::to_string(value[j]) + ",";
-        }
-        // std::cout << value_str << std::endl;
-      }
-      else if (cell_value.value_float.has_value()) {
-        const float value = *cell_value.value_float;
-        value_str += std::to_string(value) + ",";
-      }
-      else if (cell_value.value_int.has_value()) {
+    for (const ColumnValues *column : col_values) {
+      column->get_value(row, cell_value);
+      std::cout << column->name() << std::endl;
+      if (cell_value.value_int.has_value()) {
         const int value = *cell_value.value_int;
-        value_str += std::to_string(value) + ",";
+        std::cout << value << " ";
       }
       else if (cell_value.value_bool.has_value()) {
         const bool value = *cell_value.value_bool;
-        value_str += std::to_string(value) + ",";
+        std::cout << value << " ";
       }
-      dataset[i + 1] += value_str;
+      else if (cell_value.value_float3.has_value()) {
+        const float3 value = *cell_value.value_float3;
+        std::cout << value[0] << " " << value[1] << " " << value[2] << " ";
+      }
+
     }
+    std::cout << std::endl;
+  }
 
-    // Create a file and write to it.
+  // Create a file and write to it.
 
-    std::string file_name = "C:/users/himan/Desktop/dataset_blender.csv";
+  std::string file_name = "C:/users/himan/Desktop/dataset_blender.csv";
 
-    std::ofstream ost{file_name};
-    if (!ost) {
-      std::cout << "can't open file";
-      return OPERATOR_CANCELLED;
+  std::ofstream ost{file_name};
+  if (!ost) {
+    std::cout << "can't open file";
+    return OPERATOR_CANCELLED;
+  }
+
+  for (int i = 0; i < row_size; i++) {
+    for (int j = 0; j < col_iter; j++) {
+      std::cout << dataset[i][j] << " ";
+      ost << dataset[i][j] << " ";
     }
-
-
-    for (int i = 0; i < row_size; i++) {
-      ost << dataset[i] << "\n";
-    }
+    ost << "\n";
   }
 
   return OPERATOR_FINISHED;
