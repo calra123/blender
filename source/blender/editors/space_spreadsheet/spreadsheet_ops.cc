@@ -122,13 +122,14 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   LISTBASE_FOREACH (SpreadsheetColumn *, column, &sspreadsheet->columns) {
     std::unique_ptr<ColumnValues> values_ptr = data_source->get_column_values(*column->id);
     // BLI_assert(values_ptr);
-    const ColumnValues *values = scope.add(std::move(values_ptr), __func__);
+    const ColumnValues *values = scope.add(std::move(values_ptr));
     col_values.append(values);
   }
 
   for (int row : IndexRange(row_size)) {
-    CellValue cell_value;
+    
     for (const ColumnValues *column : col_values) {
+      CellValue cell_value;
       column->get_value(row, cell_value);
       std::cout << column->name() << std::endl;
       if (cell_value.value_int.has_value()) {
