@@ -248,7 +248,8 @@ static void spreadsheet_row_filters_layout(const bContext *C, Panel *panel)
   if (!(sspreadsheet->filter_flag & SPREADSHEET_FILTER_ENABLE)) {
     uiLayoutSetActive(layout, false);
   }
-
+  
+  uiItemO(layout, nullptr, ICON_NONE, "SPREADSHEET_OT_export_as_csv");
   uiItemO(layout, nullptr, ICON_ADD, "SPREADSHEET_OT_add_row_filter_rule");
 
   const bool panels_match = UI_panel_list_matches_data(region, row_filters, filter_panel_id_fn);
