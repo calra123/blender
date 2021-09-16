@@ -112,9 +112,6 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
     data_source = std::make_unique<DataSource>();
   }
   const int row_size = data_source->tot_rows();
-  // const int col_size = (sspreadsheet->columns);
-  std::cout << "Row size" << std::endl;
-  std::cout << row_size;
   std::vector<std::vector<std::string>> dataset;
   int col_iter = 0;
   Vector<const ColumnValues *> col_values;
@@ -164,7 +161,6 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
       else if (cell_value.value_float2.has_value()) {
         const float2 value = *cell_value.value_float2;
         oss_csv << value[0] << "," << value[1] << ",";
-        std::cout << value[0] << "," << value[1] << ",";
       }
       else if (cell_value.value_float3.has_value()) {
         const float3 value = *cell_value.value_float3;
@@ -178,7 +174,6 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
       }
     }
     oss_csv << "\n";
-    std::cout << std::endl;
   }
 
   // Create a file and write to it.
