@@ -32,6 +32,7 @@
 
 #include "BKE_context.h"
 #include "BKE_main.h"
+#include "BKE_report.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -105,31 +106,13 @@ static void SPREADSHEET_OT_remove_row_filter_rule(wmOperatorType *ot)
 
   RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "", 0, INT_MAX);
 }
-static void set_export_filepath(bContext *C, wmOperator *op, const char *extension)
-{
-  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
-    Main *bmain = CTX_data_main(C);
-    char filepath[FILE_MAX];
 
-    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
-      BLI_strncpy(filepath, "untitled", sizeof(filepath));
-    }
-    else {
-      BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
-    }
-
-    BLI_path_extension_replace(filepath, sizeof(filepath), extension);
-    RNA_string_set(op->ptr, "filepath", filepath);
-  }
-}
-static int export_as_csv_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
-{
-  set_export_filepath(C,op, ".csv");
-  WM_event_add_fileselect(C,op);
-  return OPERATOR_RUNNING_MODAL;
-}
 static int export_as_csv_exec(bContext *C, wmOperator *op)
 {
+  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
+    BKE_report(op->reports, RPT_ERROR, "No filename given");
+    return OPERATOR_CANCELLED;
+  }
   std::unique_ptr<DataSource> data_source = get_data_source(C);
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
   ResourceScope scope;
@@ -167,7 +150,6 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   oss_csv << "\n";
 
   for (int row : IndexRange(row_size)) {
-
     for (const ColumnValues *column : col_values) {
       CellValue cell_value;
       column->get_value(row, cell_value);
@@ -202,23 +184,56 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   }
 
   // Create a file and write to it.
-  // TODO: Open File Browser and write to it, Jacques.
-
-  const char *file_name = "C:/users/himan/Desktop/dataset_blender.csv";
-  // std::string file_name = "C:/users/himan/Desktop/dataset_blender.csv";
-
-
-  FILE *fp = BLI_fopen(file_name, "wb");
+  char file_name[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", file_name);
   std::ofstream ost{file_name};
   if (!ost) {
     std::cout << "can't open file";
     return OPERATOR_CANCELLED;
   }
-
   ost << oss_csv.str();
-  //fwrite(oss_csv.str(), len, ,fp)
-  fclose(fp);
   return OPERATOR_FINISHED;
+}
+
+static void set_export_filepath(bContext *C, wmOperator *op, const char *extension)
+{
+  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
+    Main *bmain = CTX_data_main(C);
+    char filepath[FILE_MAX] = "//spreadsheet_data";
+
+    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
+      BLI_strncpy(filepath, "untitled", sizeof(filepath));
+    }
+    else {
+      BLI_strncpy(filepath, BKE_main_blendfile_path_from_global(), sizeof(filepath));
+    }
+    BLI_path_extension_replace(filepath, sizeof(filepath), extension);
+    RNA_string_set(op->ptr, "filepath", filepath);
+  }
+}
+
+static int export_as_csv_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  if (RNA_struct_property_is_set(op->ptr, "filepath")) {
+    return export_as_csv_exec(C, op);
+  }
+  set_export_filepath(C, op, ".csv");
+  WM_event_add_fileselect(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static bool export_as_csv_check(bContext *C, wmOperator *op)
+{
+  char filepath[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", filepath);
+
+  if (!BLI_path_extension_check(filepath, ".csv")) {
+    BLI_path_extension_ensure(filepath, FILE_MAX, ".csv");
+    RNA_string_set(op->ptr, "filepath", filepath);
+    return true;
+  }
+
+  return false;
 }
 
 static void SPREADSHEET_OT_export_as_csv(wmOperatorType *ot)
@@ -226,9 +241,19 @@ static void SPREADSHEET_OT_export_as_csv(wmOperatorType *ot)
   ot->name = "Export as CSV";
   ot->description = "Export Spreadsheet data into CSV";
   ot->idname = "SPREADSHEET_OT_export_as_csv";
+
   ot->invoke = export_as_csv_invoke;
   ot->exec = export_as_csv_exec;
   ot->poll = ED_operator_spreadsheet_active;
+  ot->check = export_as_csv_check;
+
+  WM_operator_properties_filesel(ot,
+                                 FILE_TYPE_OBJECT_IO,
+                                 FILE_BLENDER,
+                                 FILE_SAVE,
+                                 WM_FILESEL_FILEPATH | WM_FILESEL_SHOW_PROPS,
+                                 FILE_DEFAULTDISPLAY,
+                                 FILE_SORT_DEFAULT);
 }
 
 static int select_component_domain_invoke(bContext *C,
