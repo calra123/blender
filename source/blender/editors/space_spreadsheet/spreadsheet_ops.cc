@@ -14,6 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 #include "BKE_screen.h"
+#include "BLI_path_util.h"
 
 #include "DNA_space_types.h"
 
@@ -30,6 +31,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BKE_context.h"
+#include "BKE_main.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -39,6 +41,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "BLI_fileops.h"
 #include "space_spreadsheet.cc"
 #include "spreadsheet_intern.hh"
 #include "spreadsheet_row_filter.hh"
@@ -102,7 +105,29 @@ static void SPREADSHEET_OT_remove_row_filter_rule(wmOperatorType *ot)
 
   RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "", 0, INT_MAX);
 }
+static void set_export_filepath(bContext *C, wmOperator *op, const char *extension)
+{
+  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
+    Main *bmain = CTX_data_main(C);
+    char filepath[FILE_MAX];
 
+    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
+      BLI_strncpy(filepath, "untitled", sizeof(filepath));
+    }
+    else {
+      BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
+    }
+
+    BLI_path_extension_replace(filepath, sizeof(filepath), extension);
+    RNA_string_set(op->ptr, "filepath", filepath);
+  }
+}
+static int export_as_csv_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  set_export_filepath(C,op, ".csv");
+  WM_event_add_fileselect(C,op);
+  return OPERATOR_RUNNING_MODAL;
+}
 static int export_as_csv_exec(bContext *C, wmOperator *op)
 {
   std::unique_ptr<DataSource> data_source = get_data_source(C);
@@ -179,8 +204,11 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   // Create a file and write to it.
   // TODO: Open File Browser and write to it, Jacques.
 
-  std::string file_name = "C:/users/himan/Desktop/dataset_blender.csv";
+  const char *file_name = "C:/users/himan/Desktop/dataset_blender.csv";
+  // std::string file_name = "C:/users/himan/Desktop/dataset_blender.csv";
 
+
+  FILE *fp = BLI_fopen(file_name, "wb");
   std::ofstream ost{file_name};
   if (!ost) {
     std::cout << "can't open file";
@@ -188,6 +216,8 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   }
 
   ost << oss_csv.str();
+  //fwrite(oss_csv.str(), len, ,fp)
+  fclose(fp);
   return OPERATOR_FINISHED;
 }
 
@@ -196,7 +226,7 @@ static void SPREADSHEET_OT_export_as_csv(wmOperatorType *ot)
   ot->name = "Export as CSV";
   ot->description = "Export Spreadsheet data into CSV";
   ot->idname = "SPREADSHEET_OT_export_as_csv";
-
+  ot->invoke = export_as_csv_invoke;
   ot->exec = export_as_csv_exec;
   ot->poll = ED_operator_spreadsheet_active;
 }
