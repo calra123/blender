@@ -499,4 +499,16 @@ std::unique_ptr<DataSource> data_source_from_geometry(const bContext *C, Object 
   return std::make_unique<GeometryDataSource>(object_eval, geometry_set, component_type, domain);
 }
 
+std::unique_ptr<DataSource> get_data_source(const bContext *C)
+{
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+  SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
+
+  Object *object_eval = spreadsheet_get_object_eval(sspreadsheet, depsgraph);
+  if (object_eval) {
+    return data_source_from_geometry(C, object_eval);
+  }
+  return {};
+}
+
 }  // namespace blender::ed::spreadsheet

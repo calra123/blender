@@ -14,7 +14,6 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 #include "BKE_screen.h"
-#include "BLI_path_util.h"
 
 #include "DNA_space_types.h"
 
@@ -27,6 +26,10 @@
 #include "WM_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_path_util.h"
+#include "BLI_vector.hh"
+
+#include "BLI_index_range.hh"
 
 #include "MEM_guardedalloc.h"
 
@@ -42,10 +45,12 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "BLI_fileops.h"
-#include "space_spreadsheet.cc"
+#include "spreadsheet_column_values.hh"
+#include "spreadsheet_cell_value.hh"
+#include "spreadsheet_data_source_geometry.hh"
 #include "spreadsheet_intern.hh"
 #include "spreadsheet_row_filter.hh"
+
 #include <fstream>
 #include <string>
 
@@ -115,14 +120,12 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
   }
   std::unique_ptr<DataSource> data_source = get_data_source(C);
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
-  ResourceScope scope;
+  blender::ResourceScope scope;
   if (!data_source) {
-    data_source = std::make_unique<DataSource>();
+    return OPERATOR_CANCELLED;
   }
-  const int row_size = data_source->tot_rows();
-  std::vector<std::vector<std::string>> dataset;
-  int col_iter = 0;
-  Vector<const ColumnValues *> col_values;
+
+  blender::Vector<const ColumnValues *> col_values;
 
   LISTBASE_FOREACH (SpreadsheetColumn *, column, &sspreadsheet->columns) {
     std::unique_ptr<ColumnValues> values_ptr = data_source->get_column_values(*column->id);
@@ -146,10 +149,11 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
       oss_csv << ",";
     }
   }
-  // Start writing the data from a new line.
+  /* Start writing the data from a new line. */
   oss_csv << "\n";
 
-  for (int row : IndexRange(row_size)) {
+  const int row_size = data_source->tot_rows();
+  for (int row : blender::IndexRange(row_size)) {
     for (const ColumnValues *column : col_values) {
       CellValue cell_value;
       column->get_value(row, cell_value);
@@ -166,15 +170,15 @@ static int export_as_csv_exec(bContext *C, wmOperator *op)
         oss_csv << value << ",";
       }
       else if (cell_value.value_float2.has_value()) {
-        const float2 value = *cell_value.value_float2;
+        const blender::float2 value = *cell_value.value_float2;
         oss_csv << value[0] << "," << value[1] << ",";
       }
       else if (cell_value.value_float3.has_value()) {
-        const float3 value = *cell_value.value_float3;
+        const blender::float3 value = *cell_value.value_float3;
         oss_csv << value[0] << "," << value[1] << "," << value[2] << ",";
       }
       else if (cell_value.value_color.has_value()) {
-        const ColorGeometry4f value = *cell_value.value_color;
+        const blender::ColorGeometry4f value = *cell_value.value_color;
         for (int i = 0; i < 4; i++) {
           oss_csv << value[i] << ",";
         }

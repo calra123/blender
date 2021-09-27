@@ -282,18 +282,6 @@ Object *spreadsheet_get_object_eval(const SpaceSpreadsheet *sspreadsheet,
   return object_eval;
 }
 
-static std::unique_ptr<DataSource> get_data_source(const bContext *C)
-{
-  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-  SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
-
-  Object *object_eval = spreadsheet_get_object_eval(sspreadsheet, depsgraph);
-  if (object_eval) {
-    return data_source_from_geometry(C, object_eval);
-  }
-  return {};
-}
-
 static float get_column_width(const ColumnValues &values)
 {
   if (values.default_width > 0) {

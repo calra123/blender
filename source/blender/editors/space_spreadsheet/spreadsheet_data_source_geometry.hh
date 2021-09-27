@@ -91,5 +91,6 @@ class InstancesDataSource : public DataSource {
 };
 
 std::unique_ptr<DataSource> data_source_from_geometry(const bContext *C, Object *object_eval);
+std::unique_ptr<DataSource> get_data_source(const bContext *C);
 
 }  // namespace blender::ed::spreadsheet
